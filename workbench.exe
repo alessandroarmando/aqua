@@ -1,0 +1,518 @@
+#!/usr/bin/perl
+
+use strict;
+use POSIX;
+use threads;
+# use Data::Float qw(have_signed_zero);
+use sigtrap qw(die INT QUIT);
+use warnings;
+use Cwd;
+# use diagnostics;
+    
+my $specfile;
+my $specfile_prefix;
+# my @encodings = ('naive', 'smart');
+# my @sscopes = ('ss', 'ms');
+# my @tscopes = ('d', 'h');
+my @sscopes = ('ss');
+my @tscopes = ('d');
+
+# my @encodings = ('smart');
+my @encodings = ('naive');
+# my @sscopes = ('ms');
+# my @tscopes = ('h');
+my @objs = ('ANY', 'MIN', 'MAX');
+# my @objs = ('MIN', 'MAX');
+# my @objs = ('MIN');
+my %thr = ();
+
+my $TIMEOUT=60;
+my $MEMORYOUT=300000;
+# my $MEMORYOUT=3000000;
+
+sub readfile {
+    my ($file) = @_;
+    my $pgm = do {
+	local $/ = undef;
+	# print "$file\n";
+	open my $fh, "<", $file or die "could not open $file: $!";
+	<$fh>;
+    };
+}
+
+sub median {
+    my @vals = sort {$a <=> $b} @_;
+    my $len = @vals;
+    if($len%2) {
+        return $vals[int($len/2)];
+    }
+    else {
+        return ($vals[int($len/2)-1] + $vals[int($len/2)])/2;
+    }
+}
+
+my $fh;
+my $size_min; my $size_max; my $size_step; my $instances; my $sscope; my $tscope;
+my $plb_start; my $plb_step; my $plb_max;
+
+sub read_pb_spec {
+    my ($dir)=@_;
+    my $spec=readfile("$dir/pb.spec");
+    if ( $spec=~ m/ROLES_MIN (.+)/ ) { $size_min=$1; }
+    if ( $spec=~ m/ROLES_MAX (.+)/ ) { $size_max=$1; }
+    if ( $spec=~ m/ROLES_STEP (.+)/ ) { $size_step=$1; }
+    if ( $spec=~ m/INSTANCES (.+)/ ) { $instances=$1; }
+    if ( $spec=~ m/SSCOPE (.+)/ ) { $sscope=$1; }
+    if ( $spec=~ m/TSCOPE (.+)/ ) { $tscope=$1; }
+    if ( $spec=~ m/PERMS_LB_START (.+)/ ) { $plb_start=$1; }
+    if ( $spec=~ m/PERMS_LB_STEP (.+)/ ) { $plb_step=$1; }
+    if ( $spec=~ m/PERMS_LB (.+)/ ) { $plb_max=$1; }
+
+    # print "[SIZE_MIN=$size_min, ";
+    # print "SIZE_MAX=$size_max, ";
+    # print "SIZE_STEP=$size_step, ";
+    # print "INSTANCES=$instances, ";
+    # print "SSCOPE=$sscope, ";
+    # print "TSCOPE=$tscope]\n";
+}
+
+my $r; my $i; my $k; my $res; 
+my $cmdfile; my $basename; my $tfile; my $file; my $statsfile; my $command;
+
+sub make_templates {
+    my $params=readfile("$specfile");
+    $params =~ s/\n//;
+    foreach my $sscope (@sscopes) {
+	foreach my $tscope (@tscopes) {
+	    print "Running ./make_templates.exe $params --SSCOPE=$sscope --TSCOPE=$tscope --DIR=$specfile_prefix-$sscope-$tscope\n";
+	    system("./make_templates.exe $params --SSCOPE=$sscope --TSCOPE=$tscope --DIR=$specfile_prefix-$sscope-$tscope");
+	}
+    }
+}
+
+sub make_instances {
+    my ($dir)=@_;
+    read_pb_spec($dir);
+    for($r=$size_min;$r<=$size_max;$r+=$size_step) {
+	$k=0; my $p;
+	for($p=$plb_start;$p<=$plb_max;$p+=$plb_step) {
+	    for($i=0;$i<$instances;$i++) {
+		$basename="$sscope-$tscope-$r-$p-$i";
+		$tfile="$basename-template.uaq";
+		$file="$basename.uaq";
+		# my $command="runsolver -C $TIMEOUT -M $MEMORYOUT ../solve_uaq.exe -g $tfile -o $file > $tfile.log 2> $tfile.stderr";
+		# my $command="runsolver -C $TIMEOUT ../solve_uaq.exe -g -s qmaxsat $tfile -o $file > $tfile.log 2> $tfile.stderr";
+		# $command="runsolver -C $TIMEOUT ../solve_uaq.exe -g -s CCLS_to_akmaxsat $tfile -o $file > $tfile.log 2> $tfile.stderr";
+		$command="../solve_uaq_smart.exe -g -v 250 -s WPM1 $tfile -o $file > $tfile.log 2> $tfile.stderr";
+		# $command="../solve_uaq_smart.exe -g -v 10 -s CCLS2014-Bounded $tfile -o $file > $tfile.log 2> $tfile.stderr";
+		$cmdfile="$dir/$tfile.cmd";
+		print "$command\n";
+		open(my $fh, '>', $cmdfile) or die "Could not open file '$cmdfile' $!";
+		print $fh $command;
+		close $fh;
+		# print "Running $command...\n";
+		$res = system("bash", "-c", "pushd $dir > /dev/null; runsolver -C $TIMEOUT $command ; popd > /dev/null");
+		$file="$dir/$basename-template.uaq.status";
+		open($fh,'>', $file) or die "Could not open file '$file' $!";
+		my $logfilename; my $logfile;
+		$logfilename="$dir/$basename-template.uaq.log";
+		# print "Reading file $logfilename...\n";
+		$logfile=readfile("$logfilename");
+		if ( $logfile=~ m/Maximum CPU time exceeded/ ) { 
+		    print "Time out.  Skipping problem $dir/$basename-template.uaq\n";
+		    print $fh "SKIPPED";
+		    close $fh;
+		    next;
+		}
+		my $stats=readfile("$dir/$basename-template.res-minisat");
+		if ( $stats=~ m/UNSATISFIABLE/ ) {
+		    print $fh "UNSAT";
+		}
+		else {
+		    $stats=readfile("$dir/$basename-template.res");
+		    if ( $stats=~ m/NO SOLUTION/ ) {
+			print $fh "UNSAT";
+		    }
+		    else {
+			print $fh "SAT";
+		    }
+		}
+	    close $fh;
+	    }
+	}
+    }
+}
+
+my @cputime; my $totaltime; my $totaltime_satsolving; my $fhplot; my $tool;
+my $totalvars; my $totalclauses; my $totalunsat;
+
+sub encode {
+    my ($dir,$encoding)=@_;
+    read_pb_spec($dir);
+    foreach my $obj (@objs) {
+	mkdir "$dir/$encoding";
+	my $summaryfile="$dir/$encoding/summary-encoding-$obj.txt";
+	unlink $summaryfile or warn "Could not unlink $summaryfile: $!";
+	my $fhsum;
+	open($fhsum, '>>', $summaryfile) or die "Could not open file '$summaryfile' $!";
+	my $plotfile="$dir/$encoding/plot-encoding-$obj.txt";
+	unlink $plotfile or warn "Could not unlink $plotfile: $!";
+	open($fhplot, '>>', $plotfile) or die "Could not open file '$plotfile' $!";
+	printf $fhplot "NR\tPlb\tTMedian\tTMean\tNV\tNC\tPUNSAT\n";
+	printf $fhsum "Filename\t\tT\tV\tC\tStatus\n";
+	for($r=$size_min;$r<=$size_max;$r+=$size_step) {
+	    $totaltime=0.0; $totalvars=0; $totalclauses=0; $totalunsat=0;
+	    $k=0; my $p;
+	    for($p=$plb_start;$p<=$plb_max;$p+=$plb_step) {
+		for($i=0;$i<$instances;$i++) {
+		    $k++;
+		    $basename="$sscope-$tscope-$r-$p-$i-$obj";
+		    $file="$basename.uaq";
+		    $statsfile="$file.time";
+		    $cmdfile="$dir/$encoding/$file.cmd";
+		    $command="( ../../solve_uaq_$encoding.exe -s WPM1 ../$file > $file.log  2> $file.stderr )";
+		    open(my $fh, '>', $cmdfile) or die "Could not open file '$cmdfile' $!";
+		    print $fh $command;
+		    close $fh;
+		    print "Running $command...\n";
+		    $res = system("bash", "-c", "pushd $dir/$encoding > /dev/null; runsolver -C $TIMEOUT -v $statsfile $command; popd > /dev/null");
+		    print "res = $res\n";
+		    my $stats=readfile("$dir/$encoding/$statsfile");
+		    print "DOPO RES";
+		    my $memory; my $status;
+		    my $nvars; my $nclauses;
+		    if ( $stats=~ m/CPUTIME=(.+)/ ) { $cputime[$i]=$1; $totaltime+=$1; }
+		    if ( $stats=~ m/MAXVM=(.+)/ ) { $memory=$1; }
+		    if (-e "$dir/$encoding/$basename.dimacs") {
+			$stats=readfile("$dir/$encoding/$basename.dimacs");
+			if ( $stats=~ m/p wcnf (\d+) (\d+)/ ) { $nvars=$1; $totalvars+=$1; $nclauses=$2; $totalclauses+=$2; }
+			$status=readfile("$dir/$sscope-$tscope-$r-$p-$i-template.uaq.status");
+			if ( $status =~ m/UNSAT/ ) {
+			    $totalunsat++;
+			}
+			else {
+			    if ( $status !~ m/SAT/ ) {
+				print "Error: status neither SAT nor UNSAT in $dir/$sscope-$tscope-$r-$p-$i-template.status\n";
+			    }
+			}
+			printf($fhsum "$file\t%6.3f\t%6d\t%6d\t%4s\n", $cputime[$i], $nvars, $nclauses, $status);
+		    }
+		    # print "---> cputime[$i]=$cputime[$i] cputime_satsolving[$i]=$cputime_satsolving[$i] memory=$memory <---\n";
+		}
+		printf $fhplot "%3d\t%3d\t%6.3f\t%6.3f\t%d\t%d\t%3.2f\n", $r, $p, median(@cputime), $totaltime/$instances, $totalvars/$k, $totalclauses/$k, $totalunsat/$k;
+	    }
+	    mkdir "../$dir";
+	    $res = system("cp $dir/$encoding/plot-encoding-$obj.txt ../$dir/$sscope-$tscope-plot-$encoding-encoding-$obj.txt");
+	}
+    }
+}
+
+sub solve {
+    my ($dir,$encoding)=@_;
+    read_pb_spec($dir);
+    foreach my $obj (@objs) {
+	my $summaryfile="$dir/$encoding/summary-solving-$obj.txt";
+	unlink $summaryfile or warn "Could not unlink $summaryfile: $!";
+	my $fhsum;
+	open($fhsum, '>>', $summaryfile) or die "Could not open file '$summaryfile' $!";
+	my $plotfile="$dir/$encoding/plot-solving-$obj.txt";
+	unlink $plotfile or warn "Could not unlink $plotfile: $!";
+	open($fhplot, '>>', $plotfile) or die "Could not open file '$plotfile' $!";
+	printf $fhplot "NR\tPlb\tTMedian\tTMean\tNV\tNC\tPUNSAT\n";
+	printf $fhsum "Filename\t\tT\tV\tC\tStatus\n";
+	for($r=$size_min;$r<=$size_max;$r+=$size_step) {
+	    $totaltime=0.0; $totalvars=0; $totalclauses=0; $totalunsat=0;
+	    $k=0; my $p;
+	    for($p=$plb_start;$p<=$plb_max;$p+=$plb_step) {
+		for($i=0;$i<$instances;$i++) {
+		    $k++; 
+		    $basename="$sscope-$tscope-$r-$p-$i-$obj";
+		    $file="$basename.dimacs";
+		    if (-e "$dir/$encoding/$file") {
+			$statsfile="$file.time";
+			$cmdfile="$dir/$encoding/$file.cmd";
+			$command="../../WPM1-2012 $file > $file.log  2> $file.stderr";
+			open(my $fh, '>', $cmdfile) or die "Could not open file '$cmdfile' $!";
+			print $fh $command;
+			close $fh;
+			print "Running $command...\n";
+			$res = system("bash", "-c", "pushd $dir/$encoding > /dev/null; runsolver --use-pty -C $TIMEOUT -v $statsfile $command; popd > /dev/null");
+			# print "res = $res\n";
+			my $stats=readfile("$dir/$encoding/$statsfile");
+			my $memory; 
+			if ( $stats=~ m/CPUTIME=(.+)/ ) { $cputime[$i]=$1; $totaltime+=$1; }
+			if ( $stats=~ m/MAXVM=(.+)/ ) { $memory=$1; }
+			$stats=readfile("$dir/$encoding/$basename.dimacs");
+			my $nvars; my $nclauses;
+			if ( $stats=~ m/p wcnf (\d+) (\d+)/ ) { $nvars=$1; $totalvars+=$1; $nclauses=$2; $totalclauses+=$2; }
+			my $status=readfile("$dir/$sscope-$tscope-$r-$p-$i-template.uaq.status");
+			$res=readfile("$dir/$encoding/$file.log");
+			if ( $status =~ m/UNSAT/ ) {
+			    $totalunsat++;
+			    if ($res =~ m/OPTIMUM FOUND/) {
+				print "Fatal error: status mismatch between $dir/$sscope-$tscope-$r-$p-$i-template.uaq.status (UNSAT) and in $dir/$encoding/$file.log (SAT)\n";
+				exit 1;
+			    }
+			    if ($res =~ m/Maximum CPU time exceeded/) {
+				print "Solver time out on $dir/$encoding/$basename.dimacs\n";
+				exit 1;
+			    }
+			}
+			else { 
+			    if ($res =~ m/UNSATISFIABLE/) {
+				print "Fatal error: status mismatch between $dir/$sscope-$tscope-$r-$p-$i-template.uaq.status (SAT) and in $dir/$encoding/$file.log (UNSAT)\n";
+				exit 1;
+			    }
+			    if ($res =~ m/Maximum CPU time exceeded/) {
+				print "Solver time out on $dir/$encoding/$basename.dimacs\n";
+			    }
+			}
+			# print "---> cputime[$i]=$cputime[$i] cputime_satsolving[$i]=$cputime_satsolving[$i] memory=$memory <---\n";
+			printf($fhsum "$file\t%6.3f\t%6d\t%6d\t%4s\n", $cputime[$i], $nvars, $nclauses, $status);
+		    }
+		}
+		printf $fhplot "%3d\t%3d\t%6.3f\t%6.3f\t%d\t%d\t%3.2f\n", $r, $p, median(@cputime), $totaltime/$instances, $totalvars/$k, $totalclauses/$k, $totalunsat/$k;
+	    }
+	    mkdir "../$dir";
+	    $res = system("cp $dir/$encoding/plot-solving-$obj.txt ../$dir/$sscope-$tscope-plot-$encoding-solving-$obj.txt");
+	}
+    }
+}
+
+sub tripu_solve {
+    my ($dir,$solver)=@_;
+    read_pb_spec($dir);
+    $res = system("bash", "-c", "pushd $dir > /dev/null; ln -s /home/armando/work/st/CC/Tripunitara/zchaff64/zchaff .; popd > /dev/null");
+    foreach my $obj (@objs) {
+	my $summaryfile="$dir/summary-tripu-$solver-$obj.txt";
+	unlink $summaryfile or warn "Could not unlink $summaryfile: $!";
+	my $fhsum;
+	open($fhsum, '>>', $summaryfile) or die "Could not open file '$summaryfile' $!";
+	my $plotfile="$dir/plot-tripu-$solver-$obj.txt";
+	unlink $plotfile or warn "Could not unlink $plotfile: $!";
+	open($fhplot, '>>', $plotfile) or die "Could not open file '$plotfile' $!";
+	printf $fhplot "NR\tPlb\tTMedian\tTMean\tPUNSAT\n";
+	printf $fhsum "Filename\t\tT\tStatus\n";
+	for($r=$size_min;$r<=$size_max;$r+=$size_step) {
+	    $totaltime=0.0; $totalvars=0; $totalclauses=0; $totalunsat=0;
+	    $k=0; my $p;
+	    for($p=$plb_start;$p<=$plb_max;$p+=$plb_step) {
+		for($i=0;$i<$instances;$i++) {
+		    my $tgtfile;
+		    $k++;
+		    $basename="$sscope-$tscope-$r-$p-$i-$obj";
+		    $file="$basename.uaq";
+		    $tgtfile="$basename.tripu";
+		    $statsfile="$tgtfile.time";
+print "statsfile=$statsfile\n";
+		    $cmdfile="$dir/$tgtfile.cmd-$solver";
+		    $command="../TripunitaraRun/Translator.exe $file $tgtfile 2> $tgtfile.stderr-translate";
+		    open(my $fh, '>', $cmdfile) or die "Could not open file '$cmdfile' $!";
+		    print $fh $command;
+		    close $fh;
+		    print "Running $command...\n";
+		    $res = system("bash", "-c", "pushd $dir > /dev/null; $command; popd > /dev/null");
+		    $command="../TripunitaraRun/2D-opt-$solver.exe $tgtfile > $tgtfile-$solver.log";
+		    print "Running $command...\n";
+		    $res = system("bash", "-c", "pushd $dir > /dev/null; runsolver -C $TIMEOUT -v $statsfile $command; popd > /dev/null");
+		    # print "res = $res\n";
+		    my $stats=readfile("$dir/$statsfile");
+		    my $memory; my $status;
+		    if ( $stats=~ m/CPUTIME=(.+)/ ) { $cputime[$i]=$1; $totaltime+=$1; }
+		    if ( $stats=~ m/MAXVM=(.+)/ ) { $memory=$1; }
+		    $status=readfile("$dir/$sscope-$tscope-$r-$p-$i-template.uaq.status");
+		    $res=readfile("$dir/$tgtfile-$solver.log");
+		    if ( $status =~ m/UNSAT/ ) {
+			$totalunsat++;
+			if ($res =~ m/Result = SAT/) {
+			    print "Fatal error: status mismatch between $dir/ss-d-$r-$p-$i-template.uaq.status (UNSAT) and in $dir/$tgtfile-$solver.log (SAT)\n";
+			    exit 1;
+			}
+			if ($res =~ m/Maximum CPU time exceeded/) {
+			    print "Solver time out on $dir/$tgtfile\n";
+			    # exit 1;
+			}
+		    }
+		    else { 
+			if ($res =~ m/Result = UnSAT/) {
+			    print "Fatal error: status mismatch between $dir/ss-d-$r-$p-$i-template.uaq.status (SAT) and in $dir/$tgtfile-$solver.log (UNSAT)\n";
+			    exit 1;
+			}
+			if ($res =~ m/Maximum CPU time exceeded/) {
+			    print "Solver time out on $dir/$tgtfile\n";
+			}
+		    }
+		    printf($fhsum "$file\t%6.3f\t%4s\n", $cputime[$i], $status);
+		}
+		printf $fhplot "%3d\t%3d\t%6.3f\t%6.3f\t%3.2f\n", $r, $p, median(@cputime), $totaltime/$instances, $totalunsat/$k;
+	    }
+	    mkdir "../$dir";
+	    $res = system("cp $dir/plot-tripu-$solver-$obj.txt ../$dir/plot-tripu-$solver-$obj.txt");
+	}
+    }
+}
+
+if(($ARGV[0] eq "help")) {
+    print "Usage:\n";
+    print " $0 help\n";
+    print " $0 <subcommand> [options] <specfile_prefix>\n";
+    print "where <subcommand> can be\n";
+    print " make_templates: generates templates using the parameter settings specified in file <specfile_prefix>.spec\n";
+    print " make_templates_new: generates templates using the parameter settings specified in file <specfile_prefix>.spec\n";
+    print " make_instances: generates instances from templates\n";
+    print " encode: generates the (PMAX)SAT encodings of the instances\n";
+    print " solve: applies the (PMAX)SAT solvers to the encodings\n";
+    print " tripu_solve: applies Tripunitara solver\n";
+    print "Options can be:\n";
+    print " --encoding=[naive|smart]: default both naive and smart\n";
+    print " --sscope=[ss|ms]: default both ss and ms\n";
+    print " --tscope=[d|h]: default both d and h\n";
+    print "Options should be used only for the encode and solve subcommands and are therefore ignored if given with other subcommands.\n";
+}
+
+
+foreach my $arg (@ARGV) {
+    # print "arg=$arg\n";
+    if($arg =~ m/--encoding=(naive|smart)/) {
+	@encodings=($1);
+    }
+    if($arg =~ m/--sscope=(ss|ms)/) {
+	@sscopes=($1);
+    }
+    if($arg =~ m/--tscope=(d|h)/) {
+	@tscopes=($1);
+    }
+    if($arg =~ m/([^.]+.spec)/) {
+	$specfile=$1;
+	$specfile =~ m/([^.]+).spec/;
+	$specfile_prefix=$1;
+    }
+}
+
+print "encodings=",join(", ", @encodings),"\n";
+print "sscopes=",join(", ", @sscopes),"\n";
+print "tscopes=",join(", ", @tscopes),"\n";
+print "specfile=$specfile\n";
+
+if(($ARGV[0] eq "make_templates") || ($ARGV[0] eq "do_all")) {
+    if (-e "$specfile") {
+	make_templates();
+    }
+    else {
+	print "$0: Specification file $specfile does not exist.  Fatal error!\n";
+	exit 1;
+    }
+}
+if(($ARGV[0] eq "make_instances") || ($ARGV[0] eq "do_all")) {
+    if (-e "$specfile") {
+	foreach $sscope (@sscopes) {
+	    foreach $tscope (@tscopes) {
+		if (-e "$specfile_prefix-$sscope-$tscope") {
+		    print "Starting thread make_instances($specfile_prefix-$sscope-$tscope, $sscope, $tscope)...\n";
+		    $thr{$sscope.$tscope} = threads->create(\&make_instances, "$specfile_prefix-$sscope-$tscope");
+		}
+		else {
+		    print "$0 make_instances: directory $specfile_prefix-$sscope-$tscope does not exist.  Fatal error!\n";
+		    exit 1;
+		}
+	    }
+	}
+	foreach $sscope (@sscopes) {
+	    foreach $tscope (@tscopes) {
+		print "Waiting for thread make_instances($specfile_prefix-$sscope-$tscope, $sscope, $tscope) to complete.\n";
+		$thr{$sscope.$tscope}->join();
+		print "Thread make_instances($specfile_prefix-$sscope-$tscope) completed.\n";
+	    }
+	}
+    }
+    else {
+	print "$0: Specification file $specfile does not exist.  Fatal error!\n";
+	exit 1;
+    }
+}
+
+if(($ARGV[0] eq "encode")  || ($ARGV[0] eq "do_all")) {
+    if (-e "$specfile") {
+	foreach my $enc (@encodings) {
+	    foreach $sscope (@sscopes) {
+		foreach $tscope (@tscopes) {
+		    # print "Starting thread encode($specfile_prefix-$sscope-$tscope-$enc)...\n";
+		    # $thr{"$specfile_prefix-$sscope-$tscope-$enc"} = threads->create(\&encode,"$specfile_prefix-$sscope-$tscope",$enc);
+		    encode("$specfile_prefix-$sscope-$tscope",$enc);
+		}
+	    }
+	    # foreach $sscope (@sscopes) {
+	    # 	foreach $tscope (@tscopes) {
+	    # 	    print "Waiting for thread encode($specfile_prefix-$sscope-$tscope-$enc) to complete.\n";
+	    # 	    $thr{"$specfile_prefix-$sscope-$tscope-$enc"}->join();
+	    # 	}
+	    # }
+	}
+    }
+    else {
+	print "$0: Specification file $specfile does not exist.  Fatal error!\n";
+	exit 1;
+    }
+}
+
+if(($ARGV[0] eq "solve")  || ($ARGV[0] eq "do_all")) {
+    if (-e "$specfile") {
+	foreach my $enc (@encodings) {
+	    foreach $sscope (@sscopes) {
+		foreach $tscope (@tscopes) {
+		    print "Starting solve($specfile_prefix-$sscope-$tscope-$enc)...\n";
+		    solve("$specfile_prefix-$sscope-$tscope",$enc);
+		}
+	    }
+	}
+    }
+    else {
+	print "$0: Specification file $specfile does not exist.  Fatal error!\n";
+	exit 1;
+    }
+}
+
+if(($ARGV[0] eq "tripu_solve_search") || ($ARGV[0] eq "do_all")) {
+    if (-e "$specfile") {
+	tripu_solve("$specfile_prefix-ss-d","search");
+    }
+    else {
+	print "$0: Specification file $specfile does not exist.  Fatal error!\n";
+	exit 1;
+    }
+}
+
+if(($ARGV[0] eq "tripu_solve_CNF") || ($ARGV[0] eq "do_all")) {
+    if (-e "$specfile") {
+	tripu_solve("$specfile_prefix-ss-d","CNF");
+    }
+    else {
+	print "$0: Specification file $specfile does not exist.  Fatal error!\n";
+	exit 1;
+    }
+}
+
+
+# if(($ARGV[0] eq "solve")  || ($ARGV[0] eq "do_all")) {
+#     if (-e "$specfile") {
+# 	foreach my $enc (@encodings) {
+# 	    foreach $sscope (@sscopes) {
+# 		foreach $tscope (@tscopes) {
+# 		    print "Starting thread solve($specfile_prefix-$sscope-$tscope-$enc)...\n";
+# 		    $thr{"$specfile_prefix-$sscope-$tscope-$enc"} = threads->create(\&solve,"$specfile_prefix-$sscope-$tscope",$enc);
+# 		}
+# 	    }
+# 	    foreach $sscope (@sscopes) {
+# 		foreach $tscope (@tscopes) {
+# 		    print "Waiting for thread solve($specfile_prefix-$sscope-$tscope-$enc) to complete.\n";
+# 		    $thr{"$specfile_prefix-$sscope-$tscope-$enc"}->join();
+# 		}
+# 	    }
+# 	}
+#     }
+#     else {
+# 	print "$0: Specification file $specfile does not exist.  Fatal error!\n";
+# 	exit 1;
+#     }
+# }
+
