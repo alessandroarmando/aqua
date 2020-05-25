@@ -2,7 +2,7 @@
 The main script is workbench.exe
 It can be invoked in the following way:
 
-'./workbench.exe make_templates <spec-file> '
+`./workbench.exe make_templates <spec-file> `
 
 spec-file sets the values of the parameters using the following format:
 --INSTANCES_MAX=10 --SESSIONS_MAX=5 --ROLES_MIN=25 --ROLES_MAX=300 --ROLES_STEP=25 --PERMS_PER_ROLE=8 --ROLES_PER_CONSTR=5 --CONSTR_RATIO=10 --MER_BOUND=3 --PERMS_LB=50
@@ -41,12 +41,16 @@ g++ -DNAIVE_MER_ENCODING solve_uaq.c twiddle.c -o solve_uaq_naive.exe (this uses
 Download
 http://www-sr.informatik.uni-tuebingen.de/~sinz/CardConstraints/CardConstraints.zip
 unzip in the main folder (CC) and run the make command.  (I had to add the directives 
+~~~~
 #include <stdio.h>  
 in SeqCounter.cpp
+~~~~
 and
+~~~~
 #include <stdio.h>
 #include <cstring>
 in ParCounter.cpp
+~~~~
 for the compilation to succeed.)
 
 Plus the following solvers (even if not all of them are used using the current settings):
