@@ -9,9 +9,11 @@ spec-file sets the values of the parameters using the following format:
 
 Once you have generated the templates, you can generate the instances, the encodings and apply the MAXSAT solvers as follows:
 
+~~~~
 ./workbench.exe make_instances <spec-file> 
 ./workbench.exe encode <spec-file> 
 ./workbench.exe solve <spec-file> 
+~~~~
 
 where <spec-file> is the same specification files used to generate the templates.
 
@@ -55,9 +57,10 @@ for the compilation to succeed.)
 
 Plus the following solvers (even if not all of them are used using the current settings):
 minisat.exe  (the MINISAT SAT solver)
-CCLS2014-Bounded.exe
-CCLS_to_akmaxsat.exe
-WPM1-2012
+
+* CCLS2014-Bounded.exe
+* CCLS_to_akmaxsat.exe
+* WPM1-2012
 qmaxsat14.04auto-glucose3_static
 /usr/bin/java -jar %s/sat4j-maxsat.jar
 maxsatz2013f
