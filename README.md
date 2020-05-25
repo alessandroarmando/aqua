@@ -29,16 +29,19 @@ The former contain the data for each instance (T=time, V=variables, C=clauses, S
 The latter contain the median and mean time, the number of variables and the number of clauses, and finally the percentage of unsat instances.
 For insance,
 
+```
 NR	TMedian	TMean	NV	NC	PUNSAT
  20	 0.002	 0.005	793	1515	0.70
-
+```
 means that 70% of the instances with NR=20 are UNSAT.
 
 workbench.exe assumes the existence of a number of executable files in the current directory.  
 These files can be generate as follows:
+~~~~
 g++ make_templates.c -o make_templates.exe
 g++ -DSMART_MER_ENCODING solve_uaq.c -o solve_uaq_smart.exe (this uses sinz's encoding of mer constraints)
 g++ -DNAIVE_MER_ENCODING solve_uaq.c twiddle.c -o solve_uaq_naive.exe (this uses the naive encoding of mer constraints)
+~~~~
 
 Download
 http://www-sr.informatik.uni-tuebingen.de/~sinz/CardConstraints/CardConstraints.zip
@@ -73,8 +76,10 @@ solve_uaq.c assumes two environmental variables:
 * SATSOLVERPATH (set to the path of the directory containing the executables of the SAT solvers).
 
 For instance, I have put the following two lines in my .bashrc file:
+~~~~
 export CCPATH=/home/armando/work/st/CC
 export SATSOLVERPATH=/home/armando/work/st/CC
+~~~~
 
 NOTES :
 * The spec files need to be in *.spec extension.
