@@ -61,21 +61,21 @@ minisat.exe  (the MINISAT SAT solver)
 * CCLS2014-Bounded.exe
 * CCLS_to_akmaxsat.exe
 * WPM1-2012
-qmaxsat14.04auto-glucose3_static
-/usr/bin/java -jar %s/sat4j-maxsat.jar
-maxsatz2013f
-WPM1-2012
+* qmaxsat14.04auto-glucose3_static
+* /usr/bin/java -jar %s/sat4j-maxsat.jar
+* maxsatz2013f
+* WPM1-2012
 
 You must also install runsolver (from http://www.cril.univ-artois.fr/~roussel/runsolver/)
 
 solve_uaq.c assumes two environmental variables: 
-- CCPATH (set to the path of the directory containing Sinz' executables) and
-- SATSOLVERPATH (set to the path of the directory containing the executables of the SAT solvers).
+* CCPATH (set to the path of the directory containing Sinz' executables) and
+* SATSOLVERPATH (set to the path of the directory containing the executables of the SAT solvers).
 
 For instance, I have put the following two lines in my .bashrc file:
 export CCPATH=/home/armando/work/st/CC
 export SATSOLVERPATH=/home/armando/work/st/CC
 
 NOTES :
-- The spec files need to be in *.spec extension (why?).
-- Do not forget to mention twiddle. 
+* The spec files need to be in *.spec extension.
+* Do not forget to mention twiddle. 
