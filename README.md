@@ -45,22 +45,22 @@ g++ -DNAIVE_MER_ENCODING solve_uaq.c twiddle.c -o solve_uaq_naive.exe (this uses
 
 Download
 http://www-sr.informatik.uni-tuebingen.de/~sinz/CardConstraints/CardConstraints.zip
-unzip in the main folder (CC) and run the make command.  (I had to add the directives 
+unzip in the main folder (CC) and run the make command. In order the compilation to succeed,
+you may have to add the directives 
 ~~~~
 #include <stdio.h>  
-in SeqCounter.cpp
 ~~~~
+in SeqCounter.cpp
 and
 ~~~~
 #include <stdio.h>
 #include <cstring>
-in ParCounter.cpp
 ~~~~
-for the compilation to succeed.)
+in ParCounter.cpp.
 
 Plus the following solvers (even if not all of them are used using the current settings):
-minisat.exe  (the MINISAT SAT solver)
 
+* minisat.exe  (the MINISAT SAT solver)
 * CCLS2014-Bounded.exe
 * CCLS_to_akmaxsat.exe
 * WPM1-2012
@@ -70,8 +70,9 @@ minisat.exe  (the MINISAT SAT solver)
 * WPM1-2012
 
 You must also install runsolver (from http://www.cril.univ-artois.fr/~roussel/runsolver/)
+if you would like to do benchmarking with the UAQ solver.
 
-solve_uaq.c assumes two environmental variables: 
+`solve_uaq.c` assumes two environmental variables: 
 * CCPATH (set to the path of the directory containing Sinz' executables) and
 * SATSOLVERPATH (set to the path of the directory containing the executables of the SAT solvers).
 
