@@ -1,7 +1,7 @@
 
 # A Set of Tools for the User Authorization Query (UAQ) 
 
-## AQUA: An Efficient UAQ Solver
+## An Efficient UAQ Solver: AQUA
 
 AQUA is an efficient solver for the User Authorization Query (UAQ) problem in Role-Based Access Control (RBAC). The UAQ problem amounts to determining a set of roles granting a given set of per- missions, satisfying a collection of authorisation constraints (most notably Dynamic Mutually-Exclusive Roles, DMER) and achieving some optimization objective, i.e. seeking min/max/any number of roles to activate and/or permissions to grant. AQUA supports the enforcement of a wide class of DMER constraints as well as several types of optimization objectives (namely, min/max/any number of roles to activate, min/max/any number of permissions to grant, and a combinations thereof).
 
