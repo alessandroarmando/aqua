@@ -76,7 +76,7 @@ if you would like to do benchmarking with the UAQ solver.
 * CCPATH (set to the path of the directory containing Sinz' executables) and
 * SATSOLVERPATH (set to the path of the directory containing the executables of the SAT solvers).
 
-For instance, I have put the following two lines in my .bashrc file:
+For instance, I have put the following two lines in my `.bashrc` file:
 ~~~~
 export CCPATH=/home/armando/work/st/CC
 export SATSOLVERPATH=/home/armando/work/st/CC
@@ -84,4 +84,3 @@ export SATSOLVERPATH=/home/armando/work/st/CC
 
 ## NOTES :
 * The spec files need to be in *.spec extension.
-* Do not forget to mention twiddle. 
