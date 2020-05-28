@@ -1,5 +1,5 @@
 
-# AQUA Solver and UAQ Benchmarking Toolkit 
+# A Set of Tools for the User Authorization Query (UAQ) 
 
 ## AQUA: An Efficient UAQ Solver
 
@@ -95,5 +95,5 @@ workbench.exe assumes the existence of AQUA executable files in the current dire
 g++ make_templates.c -o make_templates.exe
 ~~~~
 
-## NOTES :
+### NOTES :
 * The spec files need to be in *.spec extension.
