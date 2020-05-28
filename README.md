@@ -4,8 +4,10 @@ It can be invoked in the following way:
 
 `./workbench.exe make_templates <spec-file> `
 
-spec-file sets the values of the parameters using the following format:
+<spec-file> sets the values of the parameters using the following format:
+~~~~
 --INSTANCES_MAX=10 --SESSIONS_MAX=5 --ROLES_MIN=25 --ROLES_MAX=300 --ROLES_STEP=25 --PERMS_PER_ROLE=8 --ROLES_PER_CONSTR=5 --CONSTR_RATIO=10 --MER_BOUND=3 --PERMS_LB=50
+~~~~
 
 Once you have generated the templates, you can generate the instances, the encodings and apply the MAXSAT solvers as follows:
 
