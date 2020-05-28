@@ -82,6 +82,6 @@ export CCPATH=/home/armando/work/st/CC
 export SATSOLVERPATH=/home/armando/work/st/CC
 ~~~~
 
-NOTES :
+## NOTES :
 * The spec files need to be in *.spec extension.
 * Do not forget to mention twiddle. 
