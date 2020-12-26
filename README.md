@@ -96,9 +96,17 @@ g++ make_templates.c -o make_templates.exe
 ~~~~
 
 ### References :
-AQUA system description 
+AQUA system description :
+
 [1] Alessandro Armando, Giorgia A. Gazzarata, Fatih Turkmen:
 AQUA: An Efficient Solver for the User Authorization Query Problem. SACMAT 2020: 153-154
+
+PMaxSAT Encoding and Other Details
+[2] Alessandro Armando, Giorgia Gazzarata, Fatih Turkmen:
+Benchmarking UAQ Solvers. SACMAT 2020: 145-152
+[3] Alessandro Armando, Silvio Ranise, Fatih Turkmen, Bruno Crispo:
+Efficient run-time solving of RBAC user authorization queries: pushing the envelope. CODASPY 2012: 241-248
+
 
 
 ### NOTES :
