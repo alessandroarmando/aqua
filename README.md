@@ -12,9 +12,7 @@ g++ -DSMART_MER_ENCODING solve_uaq.c -o solve_uaq_smart.exe (this uses sinz's en
 g++ -DNAIVE_MER_ENCODING solve_uaq.c twiddle.c -o solve_uaq_naive.exe (this uses the naive encoding of mer constraints)
 ~~~~
 
-Download
-http://www-sr.informatik.uni-tuebingen.de/~sinz/CardConstraints/CardConstraints.zip
-unzip in the main folder (CC) and run the make command. In order the compilation to succeed,
+Download the Cardinality Constraints encoding [here](http://www-sr.informatik.uni-tuebingen.de/~sinz/CardConstraints/CardConstraints.zip),  unzip in the main folder (CC) and run the make command. In order the compilation to succeed,
 you may have to add the directives 
 ~~~~
 #include <stdio.h>  
@@ -38,7 +36,7 @@ Plus the following solvers (even if not all of them are used using the current s
 * maxsatz2013f
 * WPM1-2012
 
-You must also install runsolver (from http://www.cril.univ-artois.fr/~roussel/runsolver/)
+You must also install runsolver (from [here](http://www.cril.univ-artois.fr/~roussel/runsolver/))
 if you would like to do benchmarking with the UAQ solver.
 
 `solve_uaq.c` assumes two environmental variables: 
