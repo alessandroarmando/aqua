@@ -1,5 +1,5 @@
 
-# A Set of Tools for the User Authorization Query (UAQ) 
+# A Set of Tools for the User Authorization Query (UAQ) Problem
 
 ## An Efficient UAQ Solver: AQUA
 
