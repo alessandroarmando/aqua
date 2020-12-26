@@ -95,5 +95,11 @@ workbench.exe assumes the existence of AQUA executable files in the current dire
 g++ make_templates.c -o make_templates.exe
 ~~~~
 
+### References :
+AQUA system description 
+[1] Alessandro Armando, Giorgia A. Gazzarata, Fatih Turkmen:
+AQUA: An Efficient Solver for the User Authorization Query Problem. SACMAT 2020: 153-154
+
+
 ### NOTES :
 * The spec files need to be in *.spec extension.
